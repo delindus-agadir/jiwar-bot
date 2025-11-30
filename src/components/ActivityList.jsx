@@ -5,7 +5,7 @@ import ActivityCard from './ActivityCard';
 import ActivityForm from './ActivityForm';
 import ActivityParticipants from './ActivityParticipants';
 import { getActivities, createActivity, updateActivity, deleteActivity, registerForActivity, getMemberByUserId, cancelRegistration, getMemberRegistrations } from '../utils/db';
-import { dependents } from '../lib/dependents';
+import { listDependentsByParent } from '../lib/dependents';
 import { useAuth } from '../contexts/AuthContext';
 
 const RegistrationModal = ({ activity, member, myDependents, currentRegistrations, onClose, onConfirm }) => {
@@ -117,19 +117,6 @@ const ActivityList = () => {
     const [activities, setActivities] = useState([]);
     const [filteredActivities, setFilteredActivities] = useState([]);
     const [filter, setFilter] = useState('open'); // Default to open activities
-    const [showForm, setShowForm] = useState(false);
-    const [editingActivity, setEditingActivity] = useState(null);
-    const [showParticipants, setShowParticipants] = useState(false);
-    const [selectedActivityForParticipants, setSelectedActivityForParticipants] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    // Registration state
-    const [registrations, setRegistrations] = useState({}); // activityId -> ['self', 'depId1', ...]
-    const [myDependents, setMyDependents] = useState([]);
-    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-    const [selectedActivityForRegistration, setSelectedActivityForRegistration] = useState(null);
-
-    const navigate = useNavigate();
     const { currentUser, userRole, hasMembership, isApproved, currentMember, logout } = useAuth();
 
     // Admins and editors can create activities
@@ -164,7 +151,8 @@ const ActivityList = () => {
                 const member = await getMemberByUserId(currentUser.$id);
                 if (member) {
                     // Fetch dependents
-                    const deps = await dependents.listByParent(currentUser.$id);
+                    // Fetch dependents
+                    const deps = await listDependentsByParent(currentUser.$id);
                     setMyDependents(deps.documents);
 
                     // Fetch all registrations for this member (includes dependents)

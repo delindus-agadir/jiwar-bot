@@ -22,6 +22,7 @@ const ActivityParticipants = ({ activityId, activityTitle, activityLocation, act
             const participantsData = await Promise.all(
                 registrations.map(async (reg) => {
                     try {
+                        // This is the member who registered (parent or self)
                         const memberDoc = await databases.getDocument(
                             DATABASE_ID,
                             'members',
@@ -31,9 +32,10 @@ const ActivityParticipants = ({ activityId, activityTitle, activityLocation, act
                         let dependentDoc = null;
                         if (reg.dependent_id) {
                             try {
+                                // Fetch dependent details from MEMBERS collection
                                 dependentDoc = await databases.getDocument(
                                     DATABASE_ID,
-                                    'dependents',
+                                    'members',
                                     reg.dependent_id
                                 );
                             } catch (e) {
@@ -100,45 +102,8 @@ const ActivityParticipants = ({ activityId, activityTitle, activityLocation, act
         window.print();
     };
 
-    const handleSendToTelegram = async () => {
-        if (!currentMember?.telegram_id) {
-            alert('لم يتم العثور على حساب تيليجرام مرتبط بحسابك');
-            return;
-        }
-
-        try {
-            const participantsList = participants.map(p => ({
-                name: p.member?.name,
-                matricule: p.member?.matricule || p.member?.Matricule,
-                grade: p.member?.grade,
-                confirmed: p.confirmed_by_admin
-            }));
-
-            const response = await fetch('/.netlify/functions/send-participants-list', {
-                method: 'POST',
-                body: JSON.stringify({
-                    telegramId: currentMember.telegram_id,
-                    activityTitle,
-                    location: activityLocation,
-                    eventDate: activityDate,
-                    eventTime: activityTime,
-                    participants: participantsList
-                })
-            });
-
-            if (response.ok) {
-                alert('تم إرسال القائمة إلى حسابك في تيليجرام بنجاح');
-            } else {
-                throw new Error('Failed to send');
-            }
-        } catch (error) {
-            console.error('Error sending to Telegram:', error);
-            alert('فشل إرسال القائمة');
-        }
-    };
-
-    const modalContent = (
-        <div className="print-portal-container" style={{
+    return createPortal(
+        <div style={{
             position: 'fixed',
             top: 0,
             left: 0,
@@ -189,6 +154,7 @@ const ActivityParticipants = ({ activityId, activityTitle, activityLocation, act
 
                         .print-only {
                             display: block !important;
+                            margin-bottom: 20px !important;
                         }
 
                         /* Style table for print */
@@ -248,93 +214,83 @@ const ActivityParticipants = ({ activityId, activityTitle, activityLocation, act
                                 <div>المكان: {activityLocation || 'غير محدد'}</div>
                                 <div>التاريخ: {activityDate ? new Date(activityDate).toLocaleDateString('fr-FR') : 'غير محدد'} - {activityTime || 'غير محدد'}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
+                            <div className="no-print flex gap-2">
                                 <button
                                     onClick={handlePrint}
-                                    className="btn btn-outline no-print"
-                                    title="طباعة القائمة"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                                    title="طباعة"
                                 >
                                     <Printer size={20} />
-                                    طباعة
-                                </button>
-                                <button
-                                    onClick={handleSendToTelegram}
-                                    className="btn btn-outline no-print"
-                                    title="إرسال إلى تيليجرام"
-                                    style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-                                >
-                                    <Send size={20} />
-                                    تيليجرام
                                 </button>
                                 <button
                                     onClick={onClose}
-                                    className="no-print"
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
                                 >
-                                    <X size={24} color="#64748b" />
+                                    <X size={20} />
                                 </button>
                             </div>
                         </div>
 
                         {/* Content */}
-                        <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
-                            <div className="no-print" style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
-                                <button
-                                    onClick={() => handleSelectAll(true)}
-                                    className="btn btn-outline"
-                                    style={{ fontSize: '0.9rem' }}
-                                >
-                                    تحديد الكل
-                                </button>
-                                <button
-                                    onClick={() => handleSelectAll(false)}
-                                    className="btn btn-outline"
-                                    style={{ fontSize: '0.9rem' }}
-                                >
-                                    إلغاء تحديد الكل
-                                </button>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+                            <div className="no-print mb-4 flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                <div className="text-sm text-blue-800">
+                                    إجمالي المشاركين: <strong>{participants.length}</strong>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleSelectAll(true)}
+                                        className="text-xs px-3 py-1 bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50"
+                                    >
+                                        تحديد الكل
+                                    </button>
+                                    <button
+                                        onClick={() => handleSelectAll(false)}
+                                        className="text-xs px-3 py-1 bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50"
+                                    >
+                                        إلغاء التحديد
+                                    </button>
+                                </div>
                             </div>
 
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'right' }}>
-                                        <th style={{ padding: '12px' }}>الاسم</th>
-                                        <th style={{ padding: '12px' }}>رقم العضوية</th>
-                                        <th style={{ padding: '12px', textAlign: 'center' }}>الحضور</th>
+                                    <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                        <th style={{ padding: '12px', textAlign: 'right', color: '#64748b', fontSize: '0.875rem' }}>الاسم</th>
+                                        <th style={{ padding: '12px', textAlign: 'right', color: '#64748b', fontSize: '0.875rem' }}>الصفة</th>
+                                        <th style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>الحضور</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {participants.map(p => (
+                                    {participants.map((p) => (
                                         <tr key={p.$id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                             <td style={{ padding: '12px' }}>
-                                                {p.dependent ? (
-                                                    <div>
-                                                        <div style={{ fontWeight: 'bold' }}>{p.dependent.name}</div>
-                                                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>تابع لـ: {p.member?.name}</div>
+                                                <div style={{ fontWeight: '500', color: '#1e293b' }}>
+                                                    {p.dependent ? p.dependent.name : p.member.name}
+                                                </div>
+                                                {p.dependent && (
+                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                        ولي الأمر: {p.member.name}
                                                     </div>
-                                                ) : (
-                                                    p.member?.name
                                                 )}
                                             </td>
-                                            <td style={{ padding: '12px' }}>{p.member?.matricule || p.member?.Matricule || '-'}</td>
+                                            <td style={{ padding: '12px', color: '#64748b' }}>
+                                                {p.dependent ? (
+                                                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">رعية</span>
+                                                ) : (
+                                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">عضو</span>
+                                                )}
+                                            </td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
                                                 <input
                                                     type="checkbox"
                                                     checked={p.confirmed_by_admin || false}
                                                     onChange={() => handleToggleAttendance(p.$id)}
-                                                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                                                 />
                                             </td>
                                         </tr>
                                     ))}
-                                    {participants.length === 0 && (
-                                        <tr>
-                                            <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
-                                                لا يوجد مشاركون مسجلون في هذا النشاط
-                                            </td>
-                                        </tr>
-                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -349,31 +305,43 @@ const ActivityParticipants = ({ activityId, activityTitle, activityLocation, act
                         }}>
                             <button
                                 onClick={onClose}
-                                className="btn btn-outline"
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    background: 'white',
+                                    color: '#64748b',
+                                    cursor: 'pointer'
+                                }}
                             >
-                                إلغاء
+                                إغلاق
                             </button>
                             <button
                                 onClick={handleSave}
-                                className="btn btn-primary"
                                 disabled={saving}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    background: '#2563eb',
+                                    color: 'white',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    opacity: saving ? 0.7 : 1
+                                }}
                             >
-                                {saving ? 'جاري الحفظ...' : (
-                                    <>
-                                        <Save size={18} />
-                                        حفظ التغييرات
-                                    </>
-                                )}
+                                {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Save size={18} />}
+                                حفظ الحضور
                             </button>
                         </div>
                     </>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
-
-    return createPortal(modalContent, document.body);
 };
 
 export default ActivityParticipants;

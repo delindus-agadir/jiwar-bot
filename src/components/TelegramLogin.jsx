@@ -64,9 +64,12 @@ const TelegramLogin = () => {
                 return;
             }
 
-            console.error('Authentication error:', error);
-            setStatus('error');
-            setMessage(`حدث خطأ أثناء تسجيل الدخول: ${error.message}`);
+            // Check if it's an invalid token error
+            if (error.message.includes('Invalid token') || error.message.includes('invalid') || error.code === 401) {
+                setMessage('انتهت صلاحية الوصل السابقة. المرجو الرجوع إلى الخادم وتحديث الرابط');
+            } else {
+                setMessage(`حدث خطأ أثناء تسجيل الدخول: ${error.message}`);
+            }
         }
     };
 

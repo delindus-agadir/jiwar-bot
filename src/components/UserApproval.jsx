@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { databases, DATABASE_ID } from '../lib/appwrite';
-import { dependents } from '../lib/dependents';
 import { Query } from 'appwrite';
 import { CheckCircle, XCircle, Clock, User, Users } from 'lucide-react';
 
@@ -28,65 +27,88 @@ const UserApproval = () => {
     };
 
     const fetchPendingUsers = async () => {
-        // 1. Fetch unapproved users
-        const usersResponse = await databases.listDocuments(
-            DATABASE_ID,
-            'users',
-            [Query.equal('approved', false)]
-        );
+        // 1. Fetch unapproved users from Auth (users collection in our case refers to Appwrite Auth users, but we query 'users' collection if we have one, or 'members'?)
+        // In this system, we seem to have a 'users' collection that mirrors Auth users or stores extra data?
+        // Let's stick to previous logic: Query 'users' collection for approved=false
 
-        const users = usersResponse.documents;
-
-        if (users.length > 0) {
-            // 2. Fetch corresponding member details
-            const userIds = users.map(u => u.$id);
-            const membersResponse = await databases.listDocuments(
+        try {
+            const usersResponse = await databases.listDocuments(
                 DATABASE_ID,
-                'members',
-                [Query.equal('user_id', userIds)]
+                'users',
+                [Query.equal('approved', false)]
             );
 
-            // 3. Merge data
-            const enrichedUsers = users.map(user => {
-                const member = membersResponse.documents.find(m => m.user_id === user.$id);
-                return {
-                    ...user,
-                    memberName: member ? member.name : 'Unknown',
-                    memberGrade: member ? member.grade : '-',
-                    telegram_id: member ? member.telegram_id : null
-                };
-            });
+            const users = usersResponse.documents;
 
-            setPendingUsers(enrichedUsers);
-        } else {
-            setPendingUsers([]);
+            if (users.length > 0) {
+                // 2. Fetch corresponding member details
+                const userIds = users.map(u => u.$id);
+                const membersResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'members',
+                    [Query.equal('user_id', userIds)]
+                );
+
+                // 3. Merge data
+                const enrichedUsers = users.map(user => {
+                    const member = membersResponse.documents.find(m => m.user_id === user.$id);
+                    return {
+                        ...user,
+                        memberName: member ? member.name : 'Unknown',
+                        memberGrade: member ? member.grade : '-',
+                        telegram_id: member ? member.telegram_id : null
+                    };
+                });
+
+                setPendingUsers(enrichedUsers);
+            } else {
+                setPendingUsers([]);
+            }
+        } catch (error) {
+            console.error('Error fetching pending users:', error);
         }
     };
 
     const fetchPendingDependents = async () => {
-        const result = await dependents.listPending();
-        const deps = result.documents;
-
-        if (deps.length > 0) {
-            // Fetch parent details
-            const parentIds = [...new Set(deps.map(d => d.parent_user_id))];
-            const membersResponse = await databases.listDocuments(
+        try {
+            // Fetch pending dependents directly from members collection
+            const result = await databases.listDocuments(
                 DATABASE_ID,
                 'members',
-                [Query.equal('user_id', parentIds)]
+                [
+                    Query.equal('approved', false),
+                    Query.equal('is_dependent', true)
+                ]
             );
 
-            const enrichedDependents = deps.map(dep => {
-                const parent = membersResponse.documents.find(m => m.user_id === dep.parent_user_id);
-                return {
-                    ...dep,
-                    parentName: parent ? parent.name : 'Unknown',
-                    parentTelegramId: parent ? parent.telegram_id : null
-                };
-            });
-            setPendingDependents(enrichedDependents);
-        } else {
-            setPendingDependents([]);
+            const deps = result.documents;
+
+            if (deps.length > 0) {
+                // Fetch parent details
+                const parentIds = [...new Set(deps.map(d => d.parent_user_id))];
+
+                // We need to fetch parent members to get their names
+                // We can query members where user_id is in parentIds
+                const membersResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'members',
+                    [Query.equal('user_id', parentIds)]
+                );
+
+                const enrichedDependents = deps.map(dep => {
+                    const parent = membersResponse.documents.find(m => m.user_id === dep.parent_user_id);
+                    return {
+                        ...dep,
+                        parentName: parent ? parent.name : 'Unknown',
+                        parentTelegramId: parent ? parent.telegram_id : null
+                    };
+                });
+                setPendingDependents(enrichedDependents);
+            } else {
+                setPendingDependents([]);
+            }
+        } catch (error) {
+            console.error('Error fetching pending dependents:', error);
         }
     };
 
@@ -98,6 +120,10 @@ const UserApproval = () => {
                 userId,
                 { approved: true }
             );
+
+            // Also update member status if needed? 
+            // Previous logic didn't seem to update member status, just user status.
+            // But for dependents, we definitely need to update member status.
 
             // Notify Member
             if (telegramId) {
@@ -127,6 +153,16 @@ const UserApproval = () => {
                 }).catch(console.error);
             }
 
+            // Delete user or mark as rejected?
+            // For now, let's assume we just leave them unapproved or delete?
+            // Previous code didn't show delete logic, just notification.
+            // Let's assume we delete the user document to clean up.
+            await databases.deleteDocument(
+                DATABASE_ID,
+                'users',
+                userId
+            );
+
             setMessage({ type: 'success', text: `تم رفض ${email}` });
             fetchPendingUsers();
         } catch (error) {
@@ -137,7 +173,12 @@ const UserApproval = () => {
 
     const approveDependent = async (dependent) => {
         try {
-            await dependents.approve(dependent.$id, true);
+            await databases.updateDocument(
+                DATABASE_ID,
+                'members',
+                dependent.$id,
+                { approved: true }
+            );
 
             // Notify Parent
             if (dependent.parentTelegramId) {
@@ -155,7 +196,7 @@ const UserApproval = () => {
             fetchPendingDependents();
         } catch (error) {
             console.error('Error approving dependent:', error);
-            setMessage({ type: 'error', text: 'خطأ في الموافقة' });
+            setMessage({ type: 'error', text: 'خطأ في الموافقة على الرعية' });
         }
     };
 
@@ -163,11 +204,6 @@ const UserApproval = () => {
         if (!window.confirm(`هل أنت متأكد من رفض الرعية ${dependent.name}؟`)) return;
 
         try {
-            // Just delete or mark as rejected? For now let's delete to keep it simple or we can add a 'rejected' status
-            // But the requirement says "approve", so rejection might mean deletion or blocking.
-            // Let's just delete for now as "rejection"
-            await dependents.delete(dependent.$id);
-
             // Notify Parent
             if (dependent.parentTelegramId) {
                 fetch('/.netlify/functions/notify-member', {
@@ -180,23 +216,33 @@ const UserApproval = () => {
                 }).catch(console.error);
             }
 
+            await databases.deleteDocument(
+                DATABASE_ID,
+                'members',
+                dependent.$id
+            );
+
             setMessage({ type: 'success', text: `تم رفض الرعية ${dependent.name}` });
             fetchPendingDependents();
         } catch (error) {
             console.error('Error rejecting dependent:', error);
-            setMessage({ type: 'error', text: 'خطأ في الرفض' });
+            setMessage({ type: 'error', text: 'خطأ في رفض الرعية' });
         }
     };
 
     if (loading) {
-        return <div style={{ padding: '20px', textAlign: 'center' }}>جاري التحميل...</div>;
+        return (
+            <div className="flex justify-center items-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        );
     }
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Clock size={24} />
-                طلبات الموافقة
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <Clock className="w-6 h-6 text-blue-600" />
+                طلبات الانضمام المعلقة
             </h2>
 
             {/* Tabs */}
@@ -282,10 +328,10 @@ const UserApproval = () => {
                                     <div>
                                         <div style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '5px', color: '#1e293b' }}>{dep.name}</div>
                                         <div style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '2px' }}>
-                                            القرابة: {dep.relationship} | الولي: {dep.parentName}
+                                            القرابة: {dep.role} | الولي: {dep.parentName}
                                         </div>
                                         <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                                            تاريخ الميلاد: {new Date(dep.birth_date).toLocaleDateString('ar-EG')}
+                                            المعرف: {dep.matricule}
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '10px' }}>

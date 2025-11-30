@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { updateMemberInDb } from '../utils/db';
 import { User, Save, X, Calendar, Hash, Award, Users } from 'lucide-react';
-import DependentsManagement from './DependentsManagement';
+import DependentsList from './DependentsList';
 
 const UserProfile = () => {
     const { currentMember, currentUser } = useAuth();
@@ -76,8 +76,8 @@ const UserProfile = () => {
                 <button
                     onClick={() => setActiveTab('profile')}
                     className={`pb-4 px-6 text-sm font-medium transition-colors relative ${activeTab === 'profile'
-                            ? 'text-blue-600 border-b-2 border-blue-600'
-                            : 'text-gray-500 hover:text-gray-700'
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
                         }`}
                 >
                     <div className="flex items-center gap-2">
@@ -88,8 +88,8 @@ const UserProfile = () => {
                 <button
                     onClick={() => setActiveTab('dependents')}
                     className={`pb-4 px-6 text-sm font-medium transition-colors relative ${activeTab === 'dependents'
-                            ? 'text-blue-600 border-b-2 border-blue-600'
-                            : 'text-gray-500 hover:text-gray-700'
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
                         }`}
                 >
                     <div className="flex items-center gap-2">
@@ -99,134 +99,134 @@ const UserProfile = () => {
                 </button>
             </div>
 
-            {activeTab === 'profile' ? (
-                <div className="grid grid-cols-1 gap-6 animate-fade-in">
-                    {message && (
-                        <div className={`p-4 mb-6 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {message.text}
-                        </div>
-                    )}
+            {message && (
+                <div className={`p-4 rounded-lg mb-6 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                    }`}>
+                    {message.text}
+                </div>
+            )}
 
-                    <div className="flex justify-end mb-4">
+            {activeTab === 'profile' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-fade-in">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-semibold text-gray-800">المعلومات الشخصية</h2>
                         {!isEditing && (
                             <button
                                 onClick={() => setIsEditing(true)}
-                                className="btn btn-primary"
+                                className="text-blue-600 hover:text-blue-700 font-medium"
                             >
-                                تعديل المعلومات
+                                تعديل
                             </button>
                         )}
                     </div>
 
-                    {/* Main Info Card */}
-                    <div className="card bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <form onSubmit={handleSubmit}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">الاسم الكامل</label>
-                                    {isEditing ? (
-                                        <input
-                                            type="text"
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleChange}
-                                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            required
-                                        />
-                                    ) : (
-                                        <div className="text-lg font-medium text-slate-900">{currentMember.name}</div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">البريد الإلكتروني</label>
-                                    <div className="text-lg text-slate-600" dir="ltr" style={{ textAlign: 'right' }}>{currentUser?.email}</div>
-                                    <p className="text-xs text-slate-400 mt-1">لا يمكن تغيير البريد الإلكتروني</p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        <Hash className="w-4 h-4 inline mr-1" />
-                                        رقم العضوية (Matricule)
-                                    </label>
-                                    {isEditing ? (
-                                        <input
-                                            type="number"
-                                            name="matricule"
-                                            value={formData.matricule}
-                                            onChange={handleChange}
-                                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            required
-                                        />
-                                    ) : (
-                                        <div className="text-lg font-mono font-bold text-slate-900">{currentMember.matricule || currentMember.Matricule || '-'}</div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        <Award className="w-4 h-4 inline mr-1" />
-                                        الدرجة
-                                    </label>
-                                    {isEditing ? (
-                                        <select
-                                            name="grade"
-                                            value={formData.grade}
-                                            onChange={handleChange}
-                                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            required
-                                        />
-                                    ) : (
-                                        <div className="text-lg font-bold text-slate-900">الدرجة {currentMember.grade}</div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        <Calendar className="w-4 h-4 inline mr-1" />
-                                        تاريخ الانضمام
-                                    </label>
-                                    <div className="text-lg font-bold text-slate-900">
-                                        {new Date(currentMember.join_date).toLocaleDateString('en-GB')}
-                                    </div>
-                                    <p className="text-xs text-slate-400 mt-1">لا يمكن تغيير تاريخ الانضمام</p>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-4 max-w-lg mx-auto">
+                            {/* Name Field */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">
+                                    الاسم الكامل
+                                </label>
+                                <div className="relative">
+                                    <User className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        className={`w-full pr-10 pl-4 py-2 border rounded-lg text-center ${isEditing
+                                            ? 'border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none'
+                                            : 'bg-gray-50 border-transparent cursor-default text-gray-600'
+                                            }`}
+                                    />
                                 </div>
                             </div>
 
-                            {isEditing && (
-                                <div className="flex gap-3 pt-6 mt-6 border-t border-slate-100">
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="btn btn-primary flex items-center gap-2"
-                                    >
-                                        <Save size={18} />
-                                        {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsEditing(false);
-                                            setFormData({
-                                                name: currentMember.name || '',
-                                                grade: currentMember.grade || '',
-                                                matricule: currentMember.matricule || currentMember.Matricule || '',
-                                            });
-                                        }}
-                                        className="btn btn-outline flex items-center gap-2"
-                                    >
-                                        <X size={18} />
-                                        إلغاء
-                                    </button>
+                            {/* Matricule Field */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">
+                                    رقم العضوية (Matricule)
+                                </label>
+                                <div className="relative">
+                                    <Hash className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        name="matricule"
+                                        value={formData.matricule}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        className={`w-full pr-10 pl-4 py-2 border rounded-lg text-center ${isEditing
+                                            ? 'border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none'
+                                            : 'bg-gray-50 border-transparent cursor-default text-gray-600'
+                                            }`}
+                                    />
                                 </div>
-                            )}
-                        </form>
-                    </div>
+                            </div>
+
+                            {/* Grade Field (Read Only) */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">
+                                    الدرجة الكشفية
+                                </label>
+                                <div className="relative">
+                                    <Award className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={formData.grade}
+                                        disabled
+                                        className="w-full pr-10 pl-4 py-2 bg-gray-100 border border-transparent rounded-lg text-gray-500 cursor-not-allowed text-center"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1 text-center">لا يمكن تعديل الدرجة يدوياً</p>
+                            </div>
+
+                            {/* Join Date (Read Only) */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">
+                                    تاريخ الانضمام
+                                </label>
+                                <div className="relative">
+                                    <Calendar className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={currentMember.join_date ? new Date(currentMember.join_date).toLocaleDateString('ar-EG') : '-'}
+                                        disabled
+                                        className="w-full pr-10 pl-4 py-2 bg-gray-100 border border-transparent rounded-lg text-gray-500 cursor-not-allowed text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {isEditing && (
+                            <div className="flex justify-center gap-4 pt-6 border-t mt-8">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditing(false)}
+                                    className="px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200"
+                                >
+                                    إلغاء
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="bg-blue-600 text-white px-8 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
+                                >
+                                    {loading ? 'جاري الحفظ...' : (
+                                        <>
+                                            <Save className="w-5 h-5" />
+                                            حفظ التغييرات
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </form>
                 </div>
-            ) : (
-                <div className="animate-fade-in">
-                    <DependentsManagement />
-                </div>
+            )}
+
+            {activeTab === 'dependents' && (
+                <DependentsList />
             )}
         </div>
     );

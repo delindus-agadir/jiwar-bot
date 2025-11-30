@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { dependents } from '../lib/dependents';
+import { listDependentsByParent } from '../lib/dependents';
 
 const MemberDetails = ({ member, onClose, onDeleteEvaluation, onDeleteMember, currentUser, onEditEvaluation, canEdit }) => {
     const [memberDependents, setMemberDependents] = useState([]);
@@ -10,7 +10,7 @@ const MemberDetails = ({ member, onClose, onDeleteEvaluation, onDeleteMember, cu
             if (member && member.user_id) {
                 setLoadingDependents(true);
                 try {
-                    const deps = await dependents.listByParent(member.user_id);
+                    const deps = await listDependentsByParent(member.user_id);
                     setMemberDependents(deps.documents);
                 } catch (error) {
                     console.error("Error fetching dependents:", error);
