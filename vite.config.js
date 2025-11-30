@@ -8,27 +8,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'logo.png'],
-      manifest: {
-        name: 'نظام التنقيط والتحفيز',
-        short_name: 'نظام التنقيط',
-        description: 'نظام تقييم الأعضاء - جمعية الجوار',
-        theme_color: '#ffffff',
-        icons: [
-          {
-            src: 'logo.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'logo.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
-      },
       workbox: {
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
@@ -44,6 +27,24 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
+          }
+        ]
+      },
+      manifest: {
+        name: 'نظام التنقيط والتحفيز',
+        short_name: 'نظام التنقيط',
+        description: 'نظام تقييم الأعضاء - جمعية الجوار',
+        theme_color: '#ffffff',
+        icons: [
+          {
+            src: 'logo.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'logo.png',
+            sizes: '512x512',
+            type: 'image/png'
           }
         ]
       }

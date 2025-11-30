@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { client, databases, DATABASE_ID } from '../lib/appwrite';
 import { updateUserRole, deleteUserFromDb, blockUser, unblockUser } from '../utils/db';
 import { useAuth } from '../contexts/AuthContext';
+import { Query } from 'appwrite';
 
 const UserManagement = ({ onClose }) => {
     const [users, setUsers] = useState([]);
@@ -17,7 +18,28 @@ const UserManagement = ({ onClose }) => {
                 id: doc.$id
             }));
 
-            setUsers(usersData);
+            // Fetch member names
+            if (usersData.length > 0) {
+                const userIds = usersData.map(u => u.id);
+                const membersResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'members',
+                    [Query.equal('user_id', userIds)]
+                );
+
+                // Enrich users with member names
+                const enrichedUsers = usersData.map(user => {
+                    const member = membersResponse.documents.find(m => m.user_id === user.id);
+                    return {
+                        ...user,
+                        memberName: member ? member.name : null
+                    };
+                });
+
+                setUsers(enrichedUsers);
+            } else {
+                setUsers(usersData);
+            }
         } catch (error) {
             console.error('Error fetching users:', error);
         }
@@ -93,8 +115,15 @@ const UserManagement = ({ onClose }) => {
                     {users.map(user => (
                         <tr key={user.id} style={{ borderBottom: '1px solid #eee', backgroundColor: user.id === currentUser?.$id ? '#f0f9ff' : 'transparent' }}>
                             <td style={{ padding: '10px' }}>
-                                {user.email || 'User'}
-                                {user.id === currentUser?.$id && <span style={{ marginRight: '5px', color: '#2563eb', fontSize: '0.85rem' }}>(أنت)</span>}
+                                {user.memberName && (
+                                    <div style={{ fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '2px' }}>
+                                        {user.memberName}
+                                    </div>
+                                )}
+                                <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                                    {user.email || 'User'}
+                                    {user.id === currentUser?.$id && <span style={{ marginRight: '5px', color: '#2563eb', fontSize: '0.85rem' }}>(أنت)</span>}
+                                </div>
                             </td>
                             <td style={{ padding: '10px' }}>
                                 <span className="badge" style={{

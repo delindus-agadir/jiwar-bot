@@ -5,7 +5,9 @@ const ActivityForm = ({ onSubmit, onCancel, initialData = null }) => {
     const [formData, setFormData] = useState({
         title: initialData?.title || '',
         eventDate: initialData?.event_date || '',
+        eventTime: initialData?.event_time || '09:00',
         registrationDeadline: initialData?.registration_deadline || '',
+        registrationDeadlineTime: initialData?.registration_deadline_time || '23:59',
         location: initialData?.location || '',
         contributionAmount: initialData?.contribution_amount || '',
         organizingCommittee: initialData?.organizing_committee || '',
@@ -91,12 +93,42 @@ const ActivityForm = ({ onSubmit, onCancel, initialData = null }) => {
 
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#334155' }}>
+                                وقت الحدث <span style={{ color: '#dc2626' }}>*</span>
+                            </label>
+                            <input
+                                type="time"
+                                name="eventTime"
+                                value={formData.eventTime}
+                                onChange={handleChange}
+                                required
+                                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '1rem' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#334155' }}>
                                 آخر موعد للتسجيل <span style={{ color: '#dc2626' }}>*</span>
                             </label>
                             <input
                                 type="date"
                                 name="registrationDeadline"
                                 value={formData.registrationDeadline}
+                                onChange={handleChange}
+                                required
+                                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '1rem' }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#334155' }}>
+                                وقت انتهاء التسجيل <span style={{ color: '#dc2626' }}>*</span>
+                            </label>
+                            <input
+                                type="time"
+                                name="registrationDeadlineTime"
+                                value={formData.registrationDeadlineTime}
                                 onChange={handleChange}
                                 required
                                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '1rem' }}

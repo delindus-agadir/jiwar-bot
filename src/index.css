@@ -1,6 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --primary: #1a237e; /* Deep Blue */
-  --secondary: #c5a009; /* Gold */
+  --primary: #1a237e;
+  /* Deep Blue */
+  --secondary: #c5a009;
+  /* Gold */
   --bg-light: #f5f7fa;
   --text-dark: #1e293b;
   --text-light: #64748b;
@@ -11,10 +17,15 @@
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif, Tahoma, Geneva, Verdana;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-light);
   color: var(--text-dark);
-  direction: rtl; /* Right to Left for Arabic */
+  direction: rtl;
+  /* Right to Left for Arabic */
   text-align: right;
 }
 
@@ -22,7 +33,10 @@ body {
   box-sizing: border-box;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   margin: 0;
   font-weight: 700;
   color: var(--primary);

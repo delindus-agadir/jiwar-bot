@@ -19,11 +19,14 @@ const TelegramSignup = lazy(() => import('./components/TelegramSignup'));
 const TelegramAuth = lazy(() => import('./components/TelegramAuth'));
 const UserApproval = lazy(() => import('./components/UserApproval'));
 
+import VersionCheck from './components/VersionCheck';
+
 function App() {
   return (
     <Router>
       <AuthProvider>
         <div className="App">
+          <VersionCheck /> {/* VersionCheck added here */}
           <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>جاري التحميل...</div>}>
             <Routes>
               {/* Public routes */}

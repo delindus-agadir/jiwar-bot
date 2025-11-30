@@ -1,6 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { dependents } from '../lib/dependents';
 
 const MemberDetails = ({ member, onClose, onDeleteEvaluation, onDeleteMember, currentUser, onEditEvaluation, canEdit }) => {
+    const [memberDependents, setMemberDependents] = useState([]);
+    const [loadingDependents, setLoadingDependents] = useState(false);
+
+    useEffect(() => {
+        const fetchDependents = async () => {
+            if (member && member.user_id) {
+                setLoadingDependents(true);
+                try {
+                    const deps = await dependents.listByParent(member.user_id);
+                    setMemberDependents(deps.documents);
+                } catch (error) {
+                    console.error("Error fetching dependents:", error);
+                } finally {
+                    setLoadingDependents(false);
+                }
+            } else {
+                setMemberDependents([]);
+            }
+        };
+        fetchDependents();
+    }, [member]);
+
     if (!member) return null;
 
     return (
@@ -8,6 +31,42 @@ const MemberDetails = ({ member, onClose, onDeleteEvaluation, onDeleteMember, cu
             <div className="flex" style={{ justifyContent: 'space-between', marginBottom: '20px' }}>
                 <h2>سجل: {member.name}</h2>
                 <button className="btn btn-outline" onClick={onClose}>إغلاق</button>
+            </div>
+
+            <div style={{ marginBottom: '30px' }}>
+                <h3>الرعايا والأبناء</h3>
+                {loadingDependents ? (
+                    <p>جاري التحميل...</p>
+                ) : memberDependents.length === 0 ? (
+                    <p style={{ color: 'var(--text-light)' }}>لا يوجد رعايا مسجلين.</p>
+                ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '2px solid #eee', textAlign: 'right' }}>
+                                <th style={{ padding: '10px' }}>الاسم</th>
+                                <th style={{ padding: '10px' }}>العلاقة</th>
+                                <th style={{ padding: '10px' }}>تاريخ الميلاد</th>
+                                <th style={{ padding: '10px' }}>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {memberDependents.map((dep) => (
+                                <tr key={dep.$id} style={{ borderBottom: '1px solid #eee' }}>
+                                    <td style={{ padding: '10px' }}>{dep.name}</td>
+                                    <td style={{ padding: '10px' }}>{dep.relationship}</td>
+                                    <td style={{ padding: '10px' }}>{new Date(dep.birth_date).toLocaleDateString('ar-EG')}</td>
+                                    <td style={{ padding: '10px' }}>
+                                        {dep.approved ? (
+                                            <span style={{ color: 'green', fontWeight: 'bold' }}>معتمد</span>
+                                        ) : (
+                                            <span style={{ color: 'orange', fontWeight: 'bold' }}>قيد المراجعة</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             <div style={{ marginBottom: '30px' }}>

@@ -194,11 +194,14 @@ export const deleteUserFromDb = async (userId) => {
 // ==================== ACTIVITIES FUNCTIONS ====================
 
 // Create a new activity
+// Create a new activity
 export const createActivity = async (activityData, adminId) => {
     const data = {
         title: activityData.title,
         event_date: activityData.eventDate,
+        event_time: activityData.eventTime || '09:00',
         registration_deadline: activityData.registrationDeadline,
+        registration_deadline_time: activityData.registrationDeadlineTime || '23:59',
         location: activityData.location,
         contribution_amount: parseInt(activityData.contributionAmount || 0),
         organizing_committee: activityData.organizingCommittee,
@@ -223,7 +226,9 @@ export const updateActivity = async (activityId, activityData) => {
     const data = {
         title: activityData.title,
         event_date: activityData.eventDate,
+        event_time: activityData.eventTime || '09:00',
         registration_deadline: activityData.registrationDeadline,
+        registration_deadline_time: activityData.registrationDeadlineTime || '23:59',
         location: activityData.location,
         contribution_amount: parseInt(activityData.contributionAmount || 0),
         organizing_committee: activityData.organizingCommittee,
@@ -288,7 +293,7 @@ export const getActivityById = async (activityId) => {
 // ==================== ACTIVITY REGISTRATIONS FUNCTIONS ====================
 
 // Register for an activity
-export const registerForActivity = async (activityId, memberId, participationLevel = 'attended') => {
+export const registerForActivity = async (activityId, memberId, participationLevel = 'attended', dependentId = null) => {
     // Calculate points based on participation level
     const pointsMap = {
         'attended': 6,
@@ -299,6 +304,7 @@ export const registerForActivity = async (activityId, memberId, participationLev
     const data = {
         activity_id: activityId,
         member_id: memberId,
+        dependent_id: dependentId,
         registered_at: new Date().toISOString(),
         participation_level: participationLevel,
         contribution_points: pointsMap[participationLevel],
@@ -347,11 +353,13 @@ export const updateParticipationLevel = async (registrationId, level, roleDescri
 // Get registrations for a specific activity
 export const getActivityRegistrations = async (activityId) => {
     try {
+        console.log('Fetching registrations for activity:', activityId);
         const response = await databases.listDocuments(
             DATABASE_ID,
             'activity_registrations',
             [Query.equal('activity_id', activityId)]
         );
+        console.log(`Found ${response.documents.length} registrations for activity ${activityId}`);
         return response.documents;
     } catch (error) {
         console.error('Error fetching activity registrations:', error);
@@ -378,7 +386,7 @@ export const updateRegistrationStatus = async (registrationId, isConfirmed) => {
 };
 
 // Cancel registration
-export const cancelRegistration = async (activityId, memberId) => {
+export const cancelRegistration = async (activityId, memberId, dependentId = null) => {
     // Find the registration
     const response = await databases.listDocuments(
         DATABASE_ID,
@@ -386,7 +394,9 @@ export const cancelRegistration = async (activityId, memberId) => {
     );
 
     const registration = response.documents.find(
-        doc => doc.activity_id === activityId && doc.member_id === memberId
+        doc => doc.activity_id === activityId &&
+            doc.member_id === memberId &&
+            (dependentId ? doc.dependent_id === dependentId : !doc.dependent_id)
     );
 
     if (!registration) {
@@ -420,7 +430,7 @@ export const getMemberRegistrations = async (memberId) => {
 };
 
 // Check if member is registered for activity
-export const checkIfRegistered = async (activityId, memberId) => {
+export const checkIfRegistered = async (activityId, memberId, dependentId = null) => {
     try {
         const response = await databases.listDocuments(
             DATABASE_ID,
@@ -428,7 +438,9 @@ export const checkIfRegistered = async (activityId, memberId) => {
         );
         // Filter manually to find matching registration
         const registration = response.documents.find(
-            doc => doc.activity_id === activityId && doc.member_id === memberId
+            doc => doc.activity_id === activityId &&
+                doc.member_id === memberId &&
+                (dependentId ? doc.dependent_id === dependentId : !doc.dependent_id)
         );
         return !!registration;
     } catch (error) {

@@ -61,6 +61,7 @@ const ActivityCard = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
                     <Calendar size={18} />
                     <span>{new Date(activity.event_date).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    {activity.event_time && <span style={{ marginRight: '5px', fontWeight: 'bold' }}>• {activity.event_time}</span>}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
@@ -85,6 +86,7 @@ const ActivityCard = ({
                 <Clock size={16} color="#64748b" />
                 <span style={{ fontSize: '0.9rem', color: '#64748b' }}>
                     آخر موعد للتسجيل: {new Date(activity.registration_deadline).toLocaleDateString('ar-EG-u-nu-latn')}
+                    {activity.registration_deadline_time && <span style={{ marginRight: '5px', fontWeight: 'bold' }}>• {activity.registration_deadline_time}</span>}
                 </span>
             </div>
 

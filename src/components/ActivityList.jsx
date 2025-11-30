@@ -1,11 +1,117 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Filter, Home, LogIn, LogOut, LayoutDashboard, ArrowRight } from 'lucide-react';
+import { Plus, Filter, Home, LogIn, LogOut, LayoutDashboard, ArrowRight, Users, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ActivityCard from './ActivityCard';
 import ActivityForm from './ActivityForm';
 import ActivityParticipants from './ActivityParticipants';
-import { getActivities, createActivity, updateActivity, deleteActivity, registerForActivity, checkIfRegistered, getMemberByUserId, cancelRegistration } from '../utils/db';
+import { getActivities, createActivity, updateActivity, deleteActivity, registerForActivity, getMemberByUserId, cancelRegistration, getMemberRegistrations } from '../utils/db';
+import { dependents } from '../lib/dependents';
 import { useAuth } from '../contexts/AuthContext';
+
+const RegistrationModal = ({ activity, member, myDependents, currentRegistrations, onClose, onConfirm }) => {
+    const [selected, setSelected] = useState(new Set(currentRegistrations));
+    const [submitting, setSubmitting] = useState(false);
+
+    const toggleSelection = (id) => {
+        const newSelected = new Set(selected);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelected(newSelected);
+    };
+
+    const handleConfirm = async () => {
+        setSubmitting(true);
+        try {
+            await onConfirm(Array.from(selected));
+            onClose();
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('حدث خطأ أثناء التسجيل');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-fade-in">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-gray-800">التسجيل في النشاط</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div className="mb-6">
+                    <h4 className="font-semibold text-gray-700 mb-2">{activity.title}</h4>
+                    <p className="text-sm text-gray-500 mb-4">حدد الأشخاص المراد تسجيلهم:</p>
+
+                    <div className="space-y-3">
+                        {/* Member (Self) */}
+                        <div
+                            onClick={() => toggleSelection('self')}
+                            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selected.has('self') ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                                }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${selected.has('self') ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                                    }`}>
+                                    {selected.has('self') && <Check className="w-3 h-3 text-white" />}
+                                </div>
+                                <span className="font-medium text-gray-700">أنا ({member.name})</span>
+                            </div>
+                        </div>
+
+                        {/* Dependents */}
+                        {myDependents.map(dep => (
+                            <div
+                                key={dep.$id}
+                                onClick={() => toggleSelection(dep.$id)}
+                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selected.has(dep.$id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${selected.has(dep.$id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                                        }`}>
+                                        {selected.has(dep.$id) && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <div>
+                                        <span className="font-medium text-gray-700 block">{dep.name}</span>
+                                        <span className="text-xs text-gray-500">{dep.relationship}</span>
+                                    </div>
+                                </div>
+                                {dep.approved ? (
+                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">معتمد</span>
+                                ) : (
+                                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">قيد المراجعة</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                        إلغاء
+                    </button>
+                    <button
+                        onClick={handleConfirm}
+                        disabled={submitting}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex justify-center items-center gap-2"
+                    >
+                        {submitting ? 'جاري الحفظ...' : 'تأكيد التسجيل'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ActivityList = () => {
     const [activities, setActivities] = useState([]);
@@ -16,10 +122,15 @@ const ActivityList = () => {
     const [showParticipants, setShowParticipants] = useState(false);
     const [selectedActivityForParticipants, setSelectedActivityForParticipants] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [registrations, setRegistrations] = useState({});
+
+    // Registration state
+    const [registrations, setRegistrations] = useState({}); // activityId -> ['self', 'depId1', ...]
+    const [myDependents, setMyDependents] = useState([]);
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [selectedActivityForRegistration, setSelectedActivityForRegistration] = useState(null);
 
     const navigate = useNavigate();
-    const { currentUser, userRole, hasMembership, logout } = useAuth();
+    const { currentUser, userRole, hasMembership, isApproved, currentMember, logout } = useAuth();
 
     // Admins and editors can create activities
     const canCreate = userRole === 'admin' || userRole === 'editor';
@@ -31,11 +142,11 @@ const ActivityList = () => {
         return false;
     };
 
-    const canRegister = hasMembership; // Anyone with a member profile can register
+    const canRegister = hasMembership && isApproved; // Only approved members with profile can register
 
     useEffect(() => {
         fetchActivities();
-    }, []);
+    }, [currentUser]);
 
     useEffect(() => {
         applyFilter();
@@ -52,12 +163,22 @@ const ActivityList = () => {
                 // First, get the member ID for this user
                 const member = await getMemberByUserId(currentUser.$id);
                 if (member) {
-                    const regs = {};
-                    for (const activity of data) {
-                        const isReg = await checkIfRegistered(activity.$id, member.$id);
-                        regs[activity.$id] = isReg;
-                    }
-                    setRegistrations(regs);
+                    // Fetch dependents
+                    const deps = await dependents.listByParent(currentUser.$id);
+                    setMyDependents(deps.documents);
+
+                    // Fetch all registrations for this member (includes dependents)
+                    const allRegs = await getMemberRegistrations(member.$id);
+
+                    const regsMap = {};
+                    allRegs.forEach(reg => {
+                        if (!regsMap[reg.activity_id]) {
+                            regsMap[reg.activity_id] = [];
+                        }
+                        // If dependent_id is null, it's 'self'
+                        regsMap[reg.activity_id].push(reg.dependent_id || 'self');
+                    });
+                    setRegistrations(regsMap);
                 }
             }
         } catch (error) {
@@ -71,17 +192,26 @@ const ActivityList = () => {
         let filtered = activities;
 
         if (filter === 'open') {
-            filtered = activities.filter(a =>
-                a.status === 'open' &&
-                new Date(a.registration_deadline) >= new Date()
-            );
+            filtered = activities.filter(a => {
+                if (a.status !== 'open') return false;
+
+                // Combine date and time for accurate comparison
+                const deadlineDateTime = new Date(`${a.registration_deadline}T${a.registration_deadline_time || '23:59'}`);
+                const now = new Date();
+
+                return deadlineDateTime >= now;
+            });
         } else if (filter === 'closed') {
-            filtered = activities.filter(a =>
-                a.status === 'closed' ||
-                new Date(a.registration_deadline) < new Date()
-            );
+            filtered = activities.filter(a => {
+                if (a.status === 'closed') return true;
+
+                const deadlineDateTime = new Date(`${a.registration_deadline}T${a.registration_deadline_time || '23:59'}`);
+                const now = new Date();
+
+                return deadlineDateTime < now;
+            });
         } else if (filter === 'my') {
-            filtered = activities.filter(a => registrations[a.$id]);
+            filtered = activities.filter(a => registrations[a.$id] && registrations[a.$id].length > 0);
         }
 
         // Sort by event date (upcoming first)
@@ -110,44 +240,36 @@ const ActivityList = () => {
         }
     };
 
-    const handleRegister = async (activityId) => {
-        try {
-            // Get member ID for current user
-            const member = await getMemberByUserId(currentUser.$id);
-            if (!member) {
-                alert('لم يتم العثور على ملف العضوية الخاص بك');
-                return;
-            }
-
-            await registerForActivity(activityId, member.$id);
-            alert('تم التسجيل بنجاح! ✓');
-            fetchActivities();
-        } catch (error) {
-            alert('فشل التسجيل: ' + error.message);
-        }
+    const openRegistrationModal = (activity) => {
+        setSelectedActivityForRegistration(activity);
+        setShowRegistrationModal(true);
     };
 
-    const handleUnregister = async (activityId) => {
-        if (!window.confirm('هل أنت متأكد من إلغاء التسجيل؟')) {
-            return;
+    const handleRegistrationConfirm = async (selectedIds) => {
+        const activityId = selectedActivityForRegistration.$id;
+        const currentRegs = registrations[activityId] || [];
+        const member = await getMemberByUserId(currentUser.$id);
+
+        // Determine who to register (in selected but not in current)
+        const toRegister = selectedIds.filter(id => !currentRegs.includes(id));
+
+        // Determine who to unregister (in current but not in selected)
+        const toUnregister = currentRegs.filter(id => !selectedIds.includes(id));
+
+        // Process registrations
+        for (const id of toRegister) {
+            const dependentId = id === 'self' ? null : id;
+            await registerForActivity(activityId, member.$id, 'attended', dependentId);
         }
 
-        try {
-            // Get member ID and find the registration
-            const member = await getMemberByUserId(currentUser.$id);
-            if (!member) {
-                alert('لم يتم العثور على ملف العضوية الخاص بك');
-                return;
-            }
-
-            // We need to find the registration ID first
-            // For now, we'll use cancelRegistration which will handle it
-            await cancelRegistration(activityId, member.$id);
-            alert('تم إلغاء التسجيل بنجاح');
-            fetchActivities();
-        } catch (error) {
-            alert('فشل إلغاء التسجيل: ' + error.message);
+        // Process unregistrations
+        for (const id of toUnregister) {
+            const dependentId = id === 'self' ? null : id;
+            await cancelRegistration(activityId, member.$id, dependentId);
         }
+
+        alert('تم تحديث التسجيل بنجاح! ✓');
+        fetchActivities();
     };
 
     const openEditForm = (activity) => {
@@ -169,9 +291,16 @@ const ActivityList = () => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
             }}>
                 <button
-                    onClick={() => navigate('/')}
-                    className="btn btn-outline"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    onClick={() => navigate('/dashboard')}
+                    className="btn"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'white',
+                        color: '#0f172a',
+                        border: '1px solid #e2e8f0'
+                    }}
                 >
                     <ArrowRight size={20} />
                     الصفحة الرئيسية
@@ -323,9 +452,9 @@ const ActivityList = () => {
                             onView={() => {/* TODO: Open details modal */ }}
                             onEdit={() => openEditForm(activity)}
                             onDelete={() => handleDelete(activity.$id)}
-                            onRegister={() => handleRegister(activity.$id)}
-                            onUnregister={() => handleUnregister(activity.$id)}
-                            isRegistered={registrations[activity.$id]}
+                            onRegister={() => openRegistrationModal(activity)}
+                            onUnregister={() => openRegistrationModal(activity)} // Same modal for managing
+                            isRegistered={registrations[activity.$id] && registrations[activity.$id].length > 0}
                             canEdit={canEditActivity(activity)}
                             canRegister={canRegister}
                             onViewParticipants={() => {
@@ -352,10 +481,28 @@ const ActivityList = () => {
                 <ActivityParticipants
                     activityId={selectedActivityForParticipants.$id}
                     activityTitle={selectedActivityForParticipants.title}
+                    activityLocation={selectedActivityForParticipants.location}
+                    activityDate={selectedActivityForParticipants.event_date}
+                    activityTime={selectedActivityForParticipants.event_time}
+                    currentMember={currentMember}
                     onClose={() => {
                         setShowParticipants(false);
                         setSelectedActivityForParticipants(null);
                     }}
+                />
+            )}
+
+            {showRegistrationModal && selectedActivityForRegistration && (
+                <RegistrationModal
+                    activity={selectedActivityForRegistration}
+                    member={currentMember}
+                    myDependents={myDependents}
+                    currentRegistrations={registrations[selectedActivityForRegistration.$id] || []}
+                    onClose={() => {
+                        setShowRegistrationModal(false);
+                        setSelectedActivityForRegistration(null);
+                    }}
+                    onConfirm={handleRegistrationConfirm}
                 />
             )}
         </div>

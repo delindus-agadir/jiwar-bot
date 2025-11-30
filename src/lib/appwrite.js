@@ -1,4 +1,6 @@
-import { Client, Account, Databases } from 'appwrite';
+import { Client, Account, Databases, Query, ID } from 'appwrite';
+
+export { Query, ID };
 
 // ⚠️ REPLACE WITH YOUR APPWRITE PROJECT ID AND DATABASE ID
 export const PROJECT_ID = '69244b9b001284d94352';

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getActivityRegistrations, updateRegistrationStatus } from '../utils/db';
 import { databases, DATABASE_ID } from '../lib/appwrite';
-import { X, Save, Printer } from 'lucide-react';
+import { X, Save, Printer, Send } from 'lucide-react';
 
-const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
+const ActivityParticipants = ({ activityId, activityTitle, activityLocation, activityDate, activityTime, currentMember, onClose }) => {
     const [participants, setParticipants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -27,9 +27,24 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
                             'members',
                             reg.member_id
                         );
+
+                        let dependentDoc = null;
+                        if (reg.dependent_id) {
+                            try {
+                                dependentDoc = await databases.getDocument(
+                                    DATABASE_ID,
+                                    'dependents',
+                                    reg.dependent_id
+                                );
+                            } catch (e) {
+                                console.error(`Error fetching dependent ${reg.dependent_id}:`, e);
+                            }
+                        }
+
                         return {
                             ...reg,
-                            member: memberDoc
+                            member: memberDoc,
+                            dependent: dependentDoc
                         };
                     } catch (error) {
                         console.error(`Error fetching member ${reg.member_id}:`, error);
@@ -85,8 +100,45 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
         window.print();
     };
 
+    const handleSendToTelegram = async () => {
+        if (!currentMember?.telegram_id) {
+            alert('لم يتم العثور على حساب تيليجرام مرتبط بحسابك');
+            return;
+        }
+
+        try {
+            const participantsList = participants.map(p => ({
+                name: p.member?.name,
+                matricule: p.member?.matricule || p.member?.Matricule,
+                grade: p.member?.grade,
+                confirmed: p.confirmed_by_admin
+            }));
+
+            const response = await fetch('/.netlify/functions/send-participants-list', {
+                method: 'POST',
+                body: JSON.stringify({
+                    telegramId: currentMember.telegram_id,
+                    activityTitle,
+                    location: activityLocation,
+                    eventDate: activityDate,
+                    eventTime: activityTime,
+                    participants: participantsList
+                })
+            });
+
+            if (response.ok) {
+                alert('تم إرسال القائمة إلى حسابك في تيليجرام بنجاح');
+            } else {
+                throw new Error('Failed to send');
+            }
+        } catch (error) {
+            console.error('Error sending to Telegram:', error);
+            alert('فشل إرسال القائمة');
+        }
+    };
+
     const modalContent = (
-        <div style={{
+        <div className="print-portal-container" style={{
             position: 'fixed',
             top: 0,
             left: 0,
@@ -101,49 +153,48 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
             <style>
                 {`
                     @media print {
-                        /* Hide everything first */
-                        body * {
-                            visibility: hidden;
+                        /* Hide everything in the body except the portal */
+                        body > *:not(.print-portal-container) {
+                            display: none !important;
                         }
-                        
-                        /* Show only the print content and its children */
-                        .print-modal-content,
-                        .print-modal-content * {
-                            visibility: visible;
-                        }
-                        
-                        /* Reset modal styles for print */
-                        .print-modal-content {
-                            position: absolute !important;
-                            left: 0 !important;
-                            top: 0 !important;
-                            width: 100% !important;
-                            max-width: none !important;
-                            max-height: none !important;
-                            background: white !important;
-                            box-shadow: none !important;
-                            border-radius: 0 !important;
+
+                        /* Ensure body and html allow full height for print */
+                        html, body {
+                            height: auto !important;
                             overflow: visible !important;
-                            padding: 20px !important;
+                            background: white !important;
+                        }
+                        
+                        /* Show the print content */
+                        .print-modal-content {
+                            display: block !important;
+                            position: static !important;
+                            width: 100% !important;
+                            height: auto !important;
+                            box-shadow: none !important;
+                            border: none !important;
                             margin: 0 !important;
+                            padding: 0 !important;
+                            overflow: visible !important;
+                        }
+
+                        .print-modal-content * {
+                            visibility: visible !important;
                         }
 
                         /* Hide buttons and close icon */
                         .no-print {
                             display: none !important;
-                            visibility: hidden !important;
+                        }
+
+                        .print-only {
+                            display: block !important;
                         }
 
                         /* Style table for print */
                         table {
                             width: 100%;
                             border-collapse: collapse;
-                            page-break-inside: auto;
-                        }
-                        
-                        tr {
-                            page-break-inside: avoid;
-                            page-break-after: auto;
                         }
                         
                         th, td {
@@ -158,9 +209,9 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
                             font-weight: bold;
                         }
 
-                        /* Ensure proper page margins */
                         @page {
                             margin: 1cm;
+                            size: auto;
                         }
                     }
                 `}
@@ -193,6 +244,10 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
                             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>
                                 المشاركون في: {activityTitle}
                             </h2>
+                            <div className="print-only" style={{ display: 'none', marginTop: '10px', fontSize: '1rem', color: '#333' }}>
+                                <div>المكان: {activityLocation || 'غير محدد'}</div>
+                                <div>التاريخ: {activityDate ? new Date(activityDate).toLocaleDateString('fr-FR') : 'غير محدد'} - {activityTime || 'غير محدد'}</div>
+                            </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button
                                     onClick={handlePrint}
@@ -202,6 +257,15 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
                                 >
                                     <Printer size={20} />
                                     طباعة
+                                </button>
+                                <button
+                                    onClick={handleSendToTelegram}
+                                    className="btn btn-outline no-print"
+                                    title="إرسال إلى تيليجرام"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+                                >
+                                    <Send size={20} />
+                                    تيليجرام
                                 </button>
                                 <button
                                     onClick={onClose}
@@ -236,19 +300,24 @@ const ActivityParticipants = ({ activityId, activityTitle, onClose }) => {
                                 <thead>
                                     <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'right' }}>
                                         <th style={{ padding: '12px' }}>الاسم</th>
-                                        <th style={{ padding: '12px' }}>الرتبة</th>
-                                        <th style={{ padding: '12px' }}>تاريخ التسجيل</th>
+                                        <th style={{ padding: '12px' }}>رقم العضوية</th>
                                         <th style={{ padding: '12px', textAlign: 'center' }}>الحضور</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {participants.map(p => (
                                         <tr key={p.$id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '12px' }}>{p.member?.name}</td>
-                                            <td style={{ padding: '12px' }}>{p.member?.grade}</td>
                                             <td style={{ padding: '12px' }}>
-                                                {new Date(p.registered_at).toLocaleDateString('ar-EG-u-nu-latn')}
+                                                {p.dependent ? (
+                                                    <div>
+                                                        <div style={{ fontWeight: 'bold' }}>{p.dependent.name}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>تابع لـ: {p.member?.name}</div>
+                                                    </div>
+                                                ) : (
+                                                    p.member?.name
+                                                )}
                                             </td>
+                                            <td style={{ padding: '12px' }}>{p.member?.matricule || p.member?.Matricule || '-'}</td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
                                                 <input
                                                     type="checkbox"

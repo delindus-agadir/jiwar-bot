@@ -14,7 +14,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/activities', label: 'الأنشطة', icon: Calendar },
         { path: '/profile', label: 'الملف الشخصي', icon: UserCog },
         { path: '/approvals', label: 'الموافقات', icon: UserCheck, roles: ['admin'] },
-        { path: '/guide', label: 'الدليل المرجعي', icon: BookOpen },
+        { path: '/guide', label: 'الدليل المرجعي', icon: BookOpen, roles: ['admin', 'editor'] },
     ];
 
     // Filter nav items based on user role
