@@ -81,7 +81,6 @@ export async function createDependent(parentUserId, dependentData) {
             grade: dependentData.grade || '1',
             role: dependentData.relationship,
             join_date: new Date().toISOString(),
-            approved: false,
             parent_user_id: parentUserId,
             is_dependent: true,
             dependent_order: order,
