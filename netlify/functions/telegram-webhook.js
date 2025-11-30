@@ -11,16 +11,22 @@ const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY;
 const WEB_APP_URL = process.env.WEB_APP_URL;
 
 // Initialize Telegram Bot (No polling!)
-const bot = new TelegramBot(BOT_TOKEN, { polling: false });
+const bot = BOT_TOKEN ? new TelegramBot(BOT_TOKEN, { polling: false }) : null;
 
 // Initialize Appwrite
-const client = new Client()
-    .setEndpoint(APPWRITE_ENDPOINT)
-    .setProject(APPWRITE_PROJECT_ID)
-    .setKey(APPWRITE_API_KEY);
+let client;
+let databases;
+let users;
 
-const databases = new Databases(client);
-const users = new Users(client);
+if (APPWRITE_ENDPOINT && APPWRITE_PROJECT_ID && APPWRITE_API_KEY) {
+    client = new Client()
+        .setEndpoint(APPWRITE_ENDPOINT)
+        .setProject(APPWRITE_PROJECT_ID)
+        .setKey(APPWRITE_API_KEY);
+
+    databases = new Databases(client);
+    users = new Users(client);
+}
 
 const generateToken = () => crypto.randomBytes(32).toString('hex');
 
@@ -104,6 +110,12 @@ const handleAccessRequest = async (chatId, telegramId, fullName, firstName) => {
 };
 
 export const handler = async (event, context) => {
+    // Check configuration
+    if (!BOT_TOKEN || !client) {
+        console.error('❌ Missing configuration. Check environment variables.');
+        return { statusCode: 500, body: 'Server Configuration Error' };
+    }
+
     // Only allow POST requests
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
