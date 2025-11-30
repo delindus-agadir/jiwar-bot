@@ -1,6 +1,6 @@
-const TelegramBot = require('node-telegram-bot-api');
-const { Client, Databases, Users, ID, Query } = require('node-appwrite');
-const crypto = require('crypto');
+import TelegramBot from 'node-telegram-bot-api';
+import { Client, Databases, Users, ID, Query } from 'node-appwrite';
+import crypto from 'crypto';
 
 // Configuration
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -69,35 +69,31 @@ const handleAccessRequest = async (chatId, telegramId, fullName, firstName) => {
 
             await databases.createDocument(
                 APPWRITE_DATABASE_ID,
-                'magic_links',
+                'telegram_signups',
                 ID.unique(),
                 {
-                    token,
-                    type: 'access',
                     telegram_id: telegramId.toString(),
-                    telegram_name: fullName,
-                    expires_at: expiresAt,
-                    used: false
+                    full_name: fullName,
+                    token: token,
+                    expires_at: expiresAt
                 }
             );
 
             // Use HashRouter URL
             accessUrl = `${WEB_APP_URL}/#/telegram-signup?token=${token}`;
-            buttonText = '📝 إنشاء حساب جديد';
+            buttonText = '📝 تسجيل عضوية جديدة';
             console.log(`Generated Signup URL for ${fullName}`);
         }
 
-        // Send message with Web App button (opens directly in Telegram without browser confirmation)
-        const messageText = isLogin
-            ? `مرحباً ${firstName}! 👋\n\n✅ تم العثور على حسابك\n\nاضغط على الزر أدناه للدخول إلى حسابك بشكل آمن.`
-            : `مرحباً ${firstName}! 👋\n\n📝 مرحباً بك في جمعية الجوار\n\nاضغط على الزر أدناه لإنشاء حسابك وإكمال التسجيل.`;
-
-        await bot.sendMessage(chatId, messageText, {
+        // Send message with button
+        await bot.sendMessage(chatId, `مرحباً ${firstName} 👋\n\nللمتابعة، يرجى النقر على الزر أدناه:`, {
             reply_markup: {
-                inline_keyboard: [
-                    [{ text: buttonText, web_app: { url: accessUrl } }],
-                    [{ text: '🔄 تحديث الرابط', callback_data: 'refresh_link' }]
-                ]
+                inline_keyboard: [[
+                    {
+                        text: buttonText,
+                        web_app: { url: accessUrl }
+                    }
+                ]]
             }
         });
 
@@ -107,7 +103,7 @@ const handleAccessRequest = async (chatId, telegramId, fullName, firstName) => {
     }
 };
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
     // Only allow POST requests
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -119,34 +115,25 @@ exports.handler = async (event, context) => {
 
         // Handle Message
         if (body.message) {
-            const msg = body.message;
-            const chatId = msg.chat.id;
-            const text = msg.text;
+            const chatId = body.message.chat.id;
+            const text = body.message.text;
+            const telegramId = body.message.from.id;
+            const firstName = body.message.from.first_name || 'عضو';
+            const lastName = body.message.from.last_name || '';
+            const fullName = `${firstName} ${lastName}`.trim();
 
-            if (text === '/start' || text === '🚀 الدخول إلى الموقع') {
-                const telegramId = msg.from.id;
-                const firstName = msg.from.first_name || '';
-                const lastName = msg.from.last_name || '';
-                const fullName = `${firstName} ${lastName}`.trim();
-
+            if (text === '/start') {
                 await handleAccessRequest(chatId, telegramId, fullName, firstName);
             }
         }
-        // Handle Callback Query
+        // Handle Callback Query (if any)
         else if (body.callback_query) {
-            const callbackQuery = body.callback_query;
-            const message = callbackQuery.message;
-            const chatId = message.chat.id;
-            const data = callbackQuery.data;
-            const telegramId = callbackQuery.from.id;
-            const firstName = callbackQuery.from.first_name || '';
-            const lastName = callbackQuery.from.last_name || '';
-            const fullName = `${firstName} ${lastName}`.trim();
+            const chatId = body.callback_query.message.chat.id;
+            const telegramId = body.callback_query.from.id;
+            const firstName = body.callback_query.from.first_name;
+            const message = body.callback_query.message;
 
-            if (data === 'refresh_link') {
-                // Answer callback to stop loading animation
-                await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري تحديث الرابط...' });
-
+            if (body.callback_query.data === 'check_access') {
                 // Delete the old message to keep chat clean
                 try {
                     await bot.deleteMessage(chatId, message.message_id);
