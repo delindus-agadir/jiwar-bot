@@ -114,9 +114,18 @@ const RegistrationModal = ({ activity, member, myDependents, currentRegistration
 };
 
 const ActivityList = () => {
+    const navigate = useNavigate();
     const [activities, setActivities] = useState([]);
     const [filteredActivities, setFilteredActivities] = useState([]);
     const [filter, setFilter] = useState('open'); // Default to open activities
+    const [loading, setLoading] = useState(false);
+    const [registrations, setRegistrations] = useState({});
+    const [myDependents, setMyDependents] = useState([]);
+    const [showForm, setShowForm] = useState(false);
+    const [editingActivity, setEditingActivity] = useState(null);
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+    const [selectedActivityForRegistration, setSelectedActivityForRegistration] = useState(null);
+
     const { currentUser, userRole, hasMembership, isApproved, currentMember, logout } = useAuth();
 
     // Admins and editors can create activities
