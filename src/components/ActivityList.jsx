@@ -125,12 +125,10 @@ const ActivityList = () => {
     const [editingActivity, setEditingActivity] = useState(null);
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
     const [selectedActivityForRegistration, setSelectedActivityForRegistration] = useState(null);
+    const [showParticipants, setShowParticipants] = useState(false);
+    const [selectedActivityForParticipants, setSelectedActivityForParticipants] = useState(null);
 
     const { currentUser, userRole, hasMembership, isApproved, currentMember, logout } = useAuth();
-
-    // Admins and editors can create activities
-    const canCreate = userRole === 'admin' || userRole === 'editor';
-
     // Function to check if user can edit/delete a specific activity
     const canEditActivity = (activity) => {
         if (userRole === 'admin') return true; // Admins can edit everything
